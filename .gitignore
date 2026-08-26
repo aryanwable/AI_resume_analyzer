@@ -60,3 +60,6 @@ server/uploads/*
 tmp/
 temp/
 *.tmp
+
+# Daily personal progress PDFs
+daily-progress/
