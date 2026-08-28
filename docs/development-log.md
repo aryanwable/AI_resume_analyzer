@@ -49,3 +49,29 @@ A chronological record of development progress, challenges, and learnings.
 - **Vite Build Process**: How Vite leverages esbuild for lightning-fast pre-bundling during development and Rollup for optimized production chunking.
 - **Strict Mode in React 18**: `React.StrictMode` intentionally double-invokes certain lifecycle methods and effects in development to identify unexpected side effects before deployment.
 
+---
+
+## Day 3 — Express Backend Foundation & Health API
+
+**Date**: 2026-08-28
+
+### Implemented
+- Initialized Node.js backend with Express.js in `server/` using ES modules (`type: "module"`)
+- Built centralized environment loader (`src/config/environment.js`) with defaults for Port, CORS, JWT, and AI API keys
+- Built modular routing system (`src/routes/index.js`) and health check route (`src/routes/healthRoutes.js`)
+- Built health controller (`src/controllers/healthController.js`) reporting system health, uptime, environment, and heap memory usage
+- Implemented CORS middleware and JSON body parsers in Express application (`src/app.js`)
+- Built centralized error handling middleware (`src/middleware/errorHandler.js`) with structured 404 and 500 JSON error envelopes
+- Created server entry point (`src/server.js`) with graceful shutdown handlers for `SIGINT` and `SIGTERM`
+- Wrote automated integration tests (`test/health.test.js`) verifying root discovery, health check metrics, and 404 responses (100% pass rate)
+
+### Architecture Decisions
+- **ES Modules (ESM)**: Configured backend to use native ES Modules matching the frontend for consistent `import`/`export` syntax across the monorepo.
+- **Centralized Error Envelope**: Standardized all API error responses to `{ success: false, error: { message, code } }` to ensure predictable client-side error handling.
+- **Graceful Shutdown**: Handled process signals to close active HTTP connections cleanly before terminating.
+
+### Learning
+- **Express Middleware Lifecycle**: How Express processes requests linearly through middleware functions (`cors` -> `express.json` -> routes -> `notFoundHandler` -> `errorHandler`).
+- **Node.js Memory Metrics**: Using `process.memoryUsage()` to monitor Resident Set Size (RSS) and Heap usage for backend observability.
+
+
