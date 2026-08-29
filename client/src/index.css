@@ -1,32 +1,44 @@
-:root {
-  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-  color-scheme: light dark;
-  color: #1f2937;
-  background-color: #f9fafb;
+@layer base {
+  html {
+    @apply scroll-smooth antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
 
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  body {
+    @apply bg-slate-50 text-slate-900 min-h-screen flex flex-col font-sans;
+  }
+
+  #root {
+    @apply min-h-screen flex flex-col;
+  }
 }
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white font-medium shadow-sm transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2;
+  }
 
-body {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-}
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-white hover:bg-slate-100 active:bg-slate-200 text-slate-700 font-medium border border-slate-300 shadow-sm transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2;
+  }
 
-#root {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
+  .btn-outline {
+    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg border-2 border-brand-600 text-brand-600 hover:bg-brand-50 font-medium transition-all duration-150;
+  }
+
+  .card {
+    @apply bg-white border border-slate-200/80 rounded-xl p-6 shadow-card hover:shadow-card-hover transition-all duration-200;
+  }
+
+  .badge-primary {
+    @apply inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-brand-50 text-brand-700 border border-brand-200;
+  }
+
+  .badge-success {
+    @apply inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200;
+  }
 }

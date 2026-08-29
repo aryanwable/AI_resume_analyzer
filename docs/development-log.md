@@ -74,4 +74,29 @@ A chronological record of development progress, challenges, and learnings.
 - **Express Middleware Lifecycle**: How Express processes requests linearly through middleware functions (`cors` -> `express.json` -> routes -> `notFoundHandler` -> `errorHandler`).
 - **Node.js Memory Metrics**: Using `process.memoryUsage()` to monitor Resident Set Size (RSS) and Heap usage for backend observability.
 
+---
+
+## Day 4 — Complete Frontend Application Shell & Tailwind CSS
+
+**Date**: 2026-08-29
+
+### Implemented
+- Configured Tailwind CSS 3 and PostCSS build pipeline with Autoprefixer in `client/`
+- Designed custom theme tokens (`tailwind.config.js`) including brand color scale, typography, and card shadow variants
+- Configured global base, components, and utility layers in `src/index.css` (`.btn-primary`, `.btn-secondary`, `.card`, `.badge-primary`)
+- Built responsive `Navbar` component (`src/components/Navbar.jsx`) with brand logo, active route highlighting, API status pill, and mobile drawer
+- Built application `Footer` component (`src/components/Footer.jsx`) with repository links, architectural badges, and capstone metadata
+- Created main layout shell (`src/layouts/MainLayout.jsx`) composing header, responsive `<Outlet />` content container, and footer
+- Implemented React Router v6 multi-page navigation across `HomePage`, `DashboardPage`, `UploadPage`, `HistoryPage`, and `NotFoundPage` (404)
+- Verified production bundle compilation (`vite build`) and linting (`eslint .`) with zero warnings
+
+### Architecture Decisions
+- **Layout Route Composition**: Leveraged React Router v6 `<Outlet />` pattern in `MainLayout.jsx` to share the persistent Navigation bar and Footer across all application views.
+- **Utility-First Styling**: Tailwind CSS enables consistent spacing, color token usage, and responsive breakpoints without writing bespoke CSS classes for every component.
+
+### Learning
+- **React Router v6 NavLink**: Using the `isActive` render prop in `NavLink` to dynamically apply active background and text styling for the current route.
+- **PostCSS JIT Processing**: How Tailwind JIT scans template files on-demand to generate only the CSS classes actually utilized in production bundles.
+
+
 
