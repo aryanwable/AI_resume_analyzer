@@ -98,5 +98,30 @@ A chronological record of development progress, challenges, and learnings.
 - **React Router v6 NavLink**: Using the `isActive` render prop in `NavLink` to dynamically apply active background and text styling for the current route.
 - **PostCSS JIT Processing**: How Tailwind JIT scans template files on-demand to generate only the CSS classes actually utilized in production bundles.
 
+---
+
+## Day 5 — MongoDB Integration & Database Connection Manager (Phase 1 Complete)
+
+**Date**: 2026-08-29
+
+### Implemented
+- Installed and configured Mongoose 8 in `server/`
+- Built database connection manager (`src/config/database.js`) with `connectDB()`, `disconnectDB()`, and `getDatabaseStatus()`
+- Implemented Mongoose lifecycle event listeners (`connected`, `error`, `disconnected`, `reconnected`)
+- Added startup environment validation utility (`src/config/environment.js`) checking for critical variables
+- Integrated live MongoDB health diagnostics into `/api/health` controller
+- Added database connection initialization and graceful disconnection on process termination signals in `src/server.js`
+- Updated integration test suite (`test/health.test.js`) verifying database health status diagnostics (4/4 tests passed)
+- Completed all Phase 1 Foundation requirements
+
+### Architecture Decisions
+- **Non-blocking Startup Degradation**: In development, if `MONGODB_URI` is not yet configured, the server boots in disconnected mode rather than crashing, reporting `not_configured` in `/api/health`. In production, missing database credentials trigger a strict fatal exit.
+- **Connection Diagnostics Helper**: Extracted `getDatabaseStatus()` to decouple database state inspection from request handling logic.
+
+### Learning
+- **Mongoose Connection States**: Understanding Mongoose `readyState` codes (0: disconnected, 1: connected, 2: connecting, 3: disconnecting).
+- **Graceful Resource Release**: Closing MongoDB connections prior to terminating the Node.js process prevents orphan connection pools.
+
+
 
 

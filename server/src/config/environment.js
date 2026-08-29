@@ -22,4 +22,31 @@ export const config = {
   isDevelopment: process.env.NODE_ENV !== 'production',
 };
 
+/**
+ * Validate presence of required environment configuration and log warnings for development
+ */
+export const validateEnvironment = () => {
+  const warnings = [];
+
+  if (!config.mongoUri) {
+    warnings.push('MONGODB_URI is not defined (MongoDB features will run in offline mode).');
+  }
+
+  if (config.isProduction && config.jwtSecret === 'dev_jwt_secret_change_in_production') {
+    throw new Error('FATAL: JWT_SECRET must be set to a secure secret in production environment.');
+  }
+
+  if (!config.aiApiKey) {
+    warnings.push('AI_API_KEY is not defined (LLM features will require key setup in Phase 5).');
+  }
+
+  if (warnings.length > 0 && config.isDevelopment) {
+    console.log('\n[Environment Notice]');
+    warnings.forEach((w) => console.log(`  ℹ  ${w}`));
+    console.log('');
+  }
+
+  return { isValid: true, warnings };
+};
+
 export default config;

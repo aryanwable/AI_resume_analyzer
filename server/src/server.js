@@ -1,7 +1,16 @@
 import app from './app.js';
-import config from './config/environment.js';
+import config, { validateEnvironment } from './config/environment.js';
+import { connectDB, disconnectDB } from './config/database.js';
 
 const PORT = config.port;
+
+// Run startup environment diagnostics
+validateEnvironment();
+
+// Initialize MongoDB connection
+connectDB().catch((err) => {
+  console.error('[Startup] Database connection error:', err.message);
+});
 
 const server = app.listen(PORT, () => {
   console.log(`=============================================`);
@@ -13,10 +22,17 @@ const server = app.listen(PORT, () => {
 });
 
 // Graceful shutdown handler
-const handleGracefulShutdown = (signal) => {
+const handleGracefulShutdown = async (signal) => {
   console.log(`\nReceived ${signal}. Shutting down HTTP server gracefully...`);
-  server.close(() => {
-    console.log('HTTP server closed. Process exiting.');
+
+  server.close(async () => {
+    console.log('HTTP server closed.');
+    try {
+      await disconnectDB();
+    } catch (err) {
+      console.error('Error disconnecting database:', err);
+    }
+    console.log('Process exiting cleanly.');
     process.exit(0);
   });
 
