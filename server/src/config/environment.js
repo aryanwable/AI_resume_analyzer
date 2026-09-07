@@ -18,6 +18,7 @@ export const config = {
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
   aiApiKey: process.env.AI_API_KEY || '',
   maxFileSizeMb: parseInt(process.env.MAX_FILE_SIZE_MB || '5', 10),
+  minFileSizeBytes: parseInt(process.env.MIN_FILE_SIZE_BYTES || '500', 10),
   isProduction: process.env.NODE_ENV === 'production',
   isDevelopment: process.env.NODE_ENV !== 'production',
 };

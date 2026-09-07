@@ -122,6 +122,196 @@ A chronological record of development progress, challenges, and learnings.
 - **Mongoose Connection States**: Understanding Mongoose `readyState` codes (0: disconnected, 1: connected, 2: connecting, 3: disconnecting).
 - **Graceful Resource Release**: Closing MongoDB connections prior to terminating the Node.js process prevents orphan connection pools.
 
+---
+
+## Day 6 — User Model & Registration API (Phase 2 Begins)
+
+**Date**: 2026-09-03
+
+### Implemented
+- Designed Mongoose User Schema (`server/src/models/User.js`) with fields: `name`, `email`, `password`, `role`, and `timestamps`
+- Configured schema validations (name length constraints, lowercase normalized email regex matching, minimum password length)
+- Implemented `toJSON` transform method to automatically exclude `password` and `__v` from returned user objects
+- Built user registration controller (`server/src/controllers/authController.js`) with validation, duplicate email check, and error responses
+- Built authentication router (`server/src/routes/authRoutes.js`) mounting `POST /register`
+- Integrated `/api/auth` into central API router (`server/src/routes/index.js`)
+- Created automated integration test suite (`server/test/auth.test.js`) testing successful registration (201), duplicate email conflict (409), missing fields (400), invalid email format (400), and short password (400)
+
+### Architecture Decisions
+- **Model-Level Security**: Password field marked with `select: false` and stripped via `toJSON` transform ensures passwords are never leaked in API responses.
+- **Input Sanitization**: Email normalized to lowercase and trimmed before uniqueness checks to prevent duplicate accounts caused by case variation.
+
+### Learning
+- **Mongoose Schema Transforms**: Using `toJSON.transform` to mutate the returned object projection globally for all serialized documents.
+- **HTTP Status Codes for Auth**: Using `400 Bad Request` for validation failures, `409 Conflict` for duplicate emails, and `201 Created` for successful resource generation.
+
+---
+
+## Day 7 — Password Hashing & Security Validation (bcryptjs)
+
+**Date**: 2026-09-03
+
+### Implemented
+- Integrated `bcryptjs` 2.4.3 for one-way salted password hashing in `server/`
+- Implemented Mongoose `pre('save')` middleware on `User` schema to automatically hash plaintext passwords with 10 salt rounds
+- Added condition `this.isModified('password')` to prevent double-hashing passwords on profile updates
+- Implemented `comparePassword(candidatePassword)` instance method on `User` schema for constant-time hash verification
+- Updated registration controller to ensure offline fallback store also persists salted hashes
+- Created automated test suite (`server/test/password.test.js`) verifying 60-character `$2a$`/$2b$ hash generation, salt variability, accurate positive matches, and rejection of incorrect passwords
+
+### Architecture Decisions
+- **Mongoose Pre-Save Hook**: Placing password hashing directly in the model layer guarantees that any code path saving a User document enforces encryption before database writes occur.
+- **Work Factor of 10**: Balances robust brute-force resistance (~1024 iterations) with fast response times (< 100ms) for legitimate login and registration requests.
+
+### Learning
+- **Salting vs Hashing**: Why appending a unique random cryptographic salt to each password prevents rainbow table lookup attacks even when two users share identical passwords.
+- **Constant-Time Comparison**: Why `bcrypt.compare` uses constant-time string comparison algorithms to prevent side-channel timing attacks.
+
+---
+
+## Day 8 — User Login API & JWT Authentication
+
+**Date**: 2026-09-04
+
+### Implemented
+- Integrated `jsonwebtoken` 9.0.2 for stateless bearer token generation and signature verification in `server/`
+- Built JWT utility module (`server/src/utils/token.js`) with `generateToken()` and `verifyToken()` helpers
+- Built `login` controller handler (`server/src/controllers/authController.js`) with credential verification and user enumeration defense
+- Updated `register` controller to return a signed JWT upon successful registration for immediate authentication
+- Mounted `POST /api/auth/login` on authentication router (`server/src/routes/authRoutes.js`)
+- Created automated integration test suite (`server/test/login.test.js`) testing successful login (200 with JWT claims), invalid password rejection (401), non-existent email rejection (401), and validation errors (400)
+
+### Architecture Decisions
+- **Stateless Bearer Tokens**: JWTs contain essential claims (`id`, `email`, `role`) signed with HMAC SHA-256 (`JWT_SECRET`), eliminating server session state and enabling horizontal scalability.
+- **User Enumeration Defense**: Returned the identical generic error message (`"Invalid email or password"`) and 401 status for both non-existent emails and incorrect passwords, preventing malicious actors from probing valid user accounts.
+
+### Learning
+- **JWT Anatomy**: Understanding Header (algorithm), Payload (claims like user id and expiry), and Cryptographic Signature.
+- **Token Lifespan Strategy**: Why setting an expiration window (7 days) bounds the attack surface if an access token is compromised.
+
+---
+
+## Day 9 — Authentication Middleware & Protected Routes
+
+**Date**: 2026-09-04
+
+### Implemented
+- Built authentication middleware (`server/src/middleware/authMiddleware.js`) verifying JWTs from `Authorization: Bearer <token>` headers
+- Added request decoration attaching decoded claims (`req.user = { id, email, role }`) to authenticated request objects
+- Added role-based authorization helper (`requireRole('admin')`) supporting role restrictions
+- Built `getMe` controller handler (`server/src/controllers/authController.js`) returning current user profile
+- Mounted protected route `GET /api/auth/me` with `authenticate` middleware in `server/src/routes/authRoutes.js`
+- Created automated integration test suite (`server/test/authMiddleware.test.js`) testing valid token access (200), missing token (401 `TOKEN_MISSING`), malformed Bearer scheme (401 `INVALID_TOKEN_FORMAT`), tampered token (401 `INVALID_TOKEN`), and expired token (401 `TOKEN_EXPIRED`)
+
+### Architecture Decisions
+- **Request Context Decoration**: Attaching `req.user` inside `authenticate` middleware guarantees all downstream controllers have immediate access to the authenticated user's identity without redundant token verification.
+- **Granular Error Codes**: Differentiating `TOKEN_EXPIRED`, `TOKEN_MISSING`, and `INVALID_TOKEN` enables the frontend client (Day 10) to automatically refresh or prompt appropriate re-login UI flows.
+
+### Learning
+- **Bearer Token Authorization Scheme**: The industry-standard HTTP Authorization header format (`Authorization: Bearer <token>`).
+- **Express Middleware Pipeline with Guards**: How middleware acts as gatekeeper functions, halting execution early with 401/403 status codes before protected business logic runs.
+
+---
+
+## Day 10 — Frontend Authentication Flow & Protected Routes (Phase 2 Complete)
+
+**Date**: 2026-09-07
+
+### Implemented
+- Configured Axios 1.7.9 API client (`client/src/services/api.js`) with automatic Bearer token request interceptor and 401 session expiration handler
+- Built authentication service (`client/src/services/authService.js`) with `registerUser`, `loginUser`, and `getCurrentUser` methods
+- Implemented global `AuthContext` and custom `useAuth` hook (`client/src/context/AuthContext.jsx`) with localStorage token persistence and silent session validation
+- Created navigation guard component (`client/src/components/ProtectedRoute.jsx`) protecting candidate routes and preserving redirect targets
+- Built interactive `LoginPage` (`client/src/pages/LoginPage.jsx`) with validation, show/hide password, error alerts, and demo autofill helper
+- Built interactive `RegisterPage` (`client/src/pages/RegisterPage.jsx`) with password confirmation and client-side validation
+- Updated `Navbar` (`client/src/components/Navbar.jsx`) with dynamic auth state, candidate avatar badge, initials, and logout button
+- Wrapped application in `AuthProvider` and configured protected routes for `/dashboard`, `/upload`, and `/history` in `App.jsx`
+- Completed Phase 2: Authentication & User Management (Days 6–10)
+
+### Architecture Decisions
+- **Decoupled Interceptor Event Handling**: Configured Axios response interceptors to dispatch a custom `auth:session_expired` window event, enabling `AuthContext` to clear expired credentials reactively without coupling Axios directly to React state.
+- **Client Navigation Guards**: Used React Router `Navigate` with `state={{ from: location }}` inside `ProtectedRoute` to redirect users back to their intended destination immediately upon login.
+
+### Learning
+- **React Context Lifecycle**: How to initialize auth state synchronously from `localStorage` followed by asynchronous background verification (`GET /api/auth/me`).
+- **Axios Request Interceptors**: How interceptors automatically inject authorization headers into every outgoing HTTP request without manual boilerplate.
+
+---
+
+## Day 11 — Resume Upload UI & Drag-and-Drop Dropzone (Phase 3 Begins)
+
+**Date**: 2026-09-07
+
+### Implemented
+- Created dedicated `ResumeDropzone` component (`client/src/components/ResumeDropzone.jsx`) with HTML5 drag-and-drop event handlers (`dragenter`, `dragover`, `dragleave`, `drop`)
+- Implemented client-side PDF validation (MIME-type check and `.pdf` extension fallback) and 5MB maximum file size limit
+- Built interactive file preview card displaying filename, formatted size (KB/MB), verification badge, and remove/replace actions
+- Updated `UploadPage` (`client/src/pages/UploadPage.jsx`) with multi-step layout combining resume dropzone, job description input, and analysis controls
+- Added real-time character and estimated word counters to the job description textarea
+- Created sample Job Description presets ("Full Stack Engineer", "Backend Node.js Developer", "AI / Full Stack Specialist") for quick testing
+
+### Architecture Decisions
+- **Client-Side Pre-validation**: Enforcing PDF MIME-type and 5MB size limits in the browser prevents oversized or corrupt payloads from wasting server bandwidth.
+- **Componentized Dropzone**: Extracted `ResumeDropzone` into a standalone reusable component with isolated drag state and validation alerts.
+
+### Learning
+- **HTML5 Drag and Drop API**: Managing `preventDefault()` and `stopPropagation()` across drag events to prevent browsers from opening dropped PDF files directly in a new tab.
+- **File Object Metadata**: Reading `file.name`, `file.size`, and `file.type` to compute formatted byte metrics in the client interface.
+
+---
+
+## Day 12 — Backend PDF Upload API (Multer)
+
+**Date**: 2026-09-07
+
+### Implemented
+- Integrated `multer` 1.4.5 in `server/` for handling multipart/form-data file streams
+- Built `uploadMiddleware.js` (`server/src/middleware/uploadMiddleware.js`) with `multer.memoryStorage()`, 5MB file limit, and PDF MIME filter
+- Built `resumeController.js` (`server/src/controllers/resumeController.js`) validating file presence and extracting metadata (`fileName`, `mimeType`, `fileSizeBytes`, `uploadedBy`, `uploadedAt`)
+- Built resume router (`server/src/routes/resumeRoutes.js`) mounting `POST /api/resumes/upload` with `authenticate` and `uploadSingleResume` middleware
+- Mounted `/resumes` sub-router in central API router (`server/src/routes/index.js`)
+- Created automated integration test suite (`server/test/resumeUpload.test.js`) testing successful multipart PDF upload (201), non-PDF rejection (400 `INVALID_FILE_TYPE`), missing file payload rejection (400 `FILE_MISSING`), and unauthenticated access rejection (401 `TOKEN_MISSING`)
+
+### Architecture Decisions
+- **In-Memory Storage Buffering**: Using `multer.memoryStorage()` retains uploaded files as memory `Buffer` instances (`req.file.buffer`), avoiding temporary disk I/O latency and disk cleanup management during subsequent text extraction (Day 14).
+- **Two-Tier Authentication & Upload Middleware Chain**: Enforcing `authenticate` before `uploadSingleResume` ensures unauthenticated uploads are rejected before binary payloads are parsed into server memory.
+
+### Learning
+- **Multipart Form Encoding**: Understanding how browsers partition binary files and fields using boundary strings in `multipart/form-data` requests.
+- **Multer Memory vs Disk Storage**: Trade-offs between memory buffering (ideal for short-lived PDF text extraction < 5MB) and disk streaming (for multi-gigabyte video/asset storage).
+
+---
+
+## Day 13 — PDF Magic-Byte Validation & Minimum Size Enforcement
+
+**Date**: 2026-09-07
+
+### Implemented
+- Created `pdfValidator.js` utility (`server/src/utils/pdfValidator.js`) exporting `validatePdfBuffer(buffer)` that verifies PDF magic bytes (`%PDF-`) and enforces a configurable minimum file size (default 500 bytes)
+- Added `minFileSizeBytes` configuration option to `server/src/config/environment.js` (configurable via `MIN_FILE_SIZE_BYTES` env var, defaults to 500)
+- Integrated post-Multer buffer validation into `uploadMiddleware.js` — after Multer parses the multipart stream, the buffer is checked for magic bytes and minimum size before control passes to the controller
+- Introduced two new error codes: `INVALID_MAGIC_BYTES` (file header does not start with `%PDF-`) and `FILE_TOO_SMALL` (file below minimum byte threshold)
+- Extended integration test suite (`server/test/resumeUpload.test.js`) with two new test cases:
+  - Corrupted PDF rejection (valid MIME but invalid content → 400 `INVALID_MAGIC_BYTES`)
+  - Undersized PDF rejection (valid header but < 500 bytes → 400 `FILE_TOO_SMALL`)
+- Padded existing success test mock PDF to exceed 500 bytes, ensuring it passes the new minimum size validation
+
+### Architecture Decisions
+- **Post-Multer Validation Pipeline**: Magic-byte and size checks run *after* Multer has parsed the stream into an in-memory buffer, keeping the validation decoupled from stream parsing. This avoids duplicating Multer's file-type filter while adding a deeper content-integrity layer.
+- **Configurable Minimum Size**: The 500-byte threshold is exposed as `MIN_FILE_SIZE_BYTES` env var rather than a hardcoded constant, allowing deployment-specific tuning without code changes.
+- **Validation Utility Separation**: `pdfValidator.js` is a standalone pure function with no side effects, making it independently testable and reusable for future file-processing pipelines.
+
+### Learning
+- **PDF Magic Bytes**: Every conforming PDF begins with the 5-byte ASCII sequence `%PDF-`, followed by a version number (e.g., `1.4`, `2.0`). Checking this header is the most reliable way to verify file authenticity beyond MIME-type metadata, which can be spoofed.
+- **Buffer.subarray vs Buffer.slice**: `subarray()` returns a view over the same memory (no copy), making it the preferred method for header inspection over `slice()` which creates a copy in older Node versions.
+
+
+
+
+
+
+
+
 
 
 
