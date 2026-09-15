@@ -337,11 +337,36 @@ A chronological record of development progress, challenges, and learnings.
 - **pdf-parse v2 API**: The v2 package is a complete rewrite using a class-based API (`PDFParse`). The buffer must be passed as `{ data: Uint8Array }` in the constructor options (forwarded to `pdfjs.getDocument()`). The old v1 function-call style `pdfParse(buffer)` no longer exists.
 - **pdfjs Text Extraction**: `getTextContent()` returns `TextItem[]` with `str`, `transform`, and `hasEOL` properties. The pdf-parse `getPageText()` helper assembles these into readable lines while respecting spatial layout.
 
+---
 
+## Day 15 — Deterministic Resume Scoring Engine & End-to-End Pipeline
 
+**Date**: 2026-09-15
 
+### Implemented
+- Built deterministic `resumeScorer.js` service (`server/src/services/resumeScorer.js`):
+  - 100-point multi-factor algorithm:
+    - **Keyword Match** (50 pts): Extracts top JD terms, removes stopwords, compares against resume token set
+    - **Section Coverage** (20 pts): Detects essential (`experience`, `education`, `skills`, `contact`) and bonus sections
+    - **Content Depth** (20 pts): Quantifies total word count and lexical diversity metrics
+    - **Readability** (10 pts): Analyzes average sentence length and bullet structure indicators
+  - Computes letter grade (`A`, `B`, `C`, `D`, `F`) and human-readable executive summary
+- Created `scoreController.js` (`server/src/controllers/scoreController.js`) and mounted `POST /api/resumes/score` in `resumeRoutes.js`
+- Built frontend resume API service (`client/src/services/resumeService.js`) with `uploadResumeFile` and `scoreResumeText`
+- Integrated real-time scoring in `UploadPage.jsx`:
+  - Directly uploads selected PDF file to `/api/resumes/upload`
+  - Passes extracted resume text & target job description to `/api/resumes/score`
+  - Visualizes overall score, letter grade badge, progress meters, and matched/missing keyword chips
+- Created comprehensive test suite `resumeScore.test.js` (`server/test/resumeScore.test.js`):
+  - 11 unit tests for scoring edge cases, boundary rules, and category breakdown validation
+  - 4 integration tests verifying authentication, valid payload response structure, and missing field validation
+- Verified all 50 backend tests passing cleanly and frontend Vite production bundle building without warnings
 
+### Architecture Decisions
+- **Deterministic Baseline Before LLM**: Implementing a strict keyword-and-heuristic engine prior to LLM integration (Day 16) provides an instant, zero-cost, reproducible benchmark score and shields users from API latency or quota failures.
+- **Separation of Extracted Text and Scoring**: Decoupled the score endpoint (`POST /score`) from the file upload endpoint (`POST /upload`). This enables re-scoring the same extracted resume against multiple different job descriptions without re-uploading the PDF.
 
-
-
+### Learning
+- **Lexical Diversity as Depth Proxy**: Measuring the type-token ratio (unique tokens / total tokens) offers a straightforward heuristic to reward rich vocabulary without penalizing concise, well-edited resumes.
+- **Client End-to-End Coordination**: Chaining file ingestion followed by scoring creates an intuitive step-by-step UX while handling backend validation errors cleanly at each phase.
 
