@@ -1,4 +1,5 @@
 import { scoreResume } from '../services/resumeScorer.js';
+import { generateAiAdvice } from '../services/aiAdvisor.js';
 import { ResumeAnalysis } from '../models/ResumeAnalysis.js';
 import mongoose from 'mongoose';
 
@@ -48,9 +49,16 @@ export const scoreResumeHandler = async (req, res, next) => {
     // 1. Calculate deterministic score
     const scoreResult = scoreResume(resumeText.trim(), jobDescription.trim());
 
+    // 2. Generate AI resume feedback & bullet rewrites
+    const aiAdvice = await generateAiAdvice(
+      resumeText.trim(),
+      jobDescription.trim(),
+      scoreResult
+    );
+
     let savedRecord = null;
 
-    // 2. Persist to MongoDB history if available and requested
+    // 3. Persist to MongoDB history if available and requested
     if (saveToHistory && isMongoConnected() && req.user?.id) {
       try {
         savedRecord = await ResumeAnalysis.create({
@@ -68,6 +76,7 @@ export const scoreResumeHandler = async (req, res, next) => {
             pdfVersion: metrics?.pdfVersion || 'unknown',
           },
           score: scoreResult,
+          aiAdvice,
         });
       } catch (dbErr) {
         // Non-blocking: If DB write fails, still return computed score
@@ -77,9 +86,10 @@ export const scoreResumeHandler = async (req, res, next) => {
 
     return res.status(200).json({
       success: true,
-      message: 'Resume scored successfully.',
+      message: 'Resume scored and analyzed successfully.',
       data: {
         score: scoreResult,
+        aiAdvice,
         analysisId: savedRecord?.id || null,
       },
     });

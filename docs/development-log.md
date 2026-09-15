@@ -396,3 +396,26 @@ A chronological record of development progress, challenges, and learnings.
   - Previews recent evaluations with direct links to full reports
 - Wrote integration test suite `resumeHistory.test.js` (`server/test/resumeHistory.test.js`) testing authentication guards, collection retrieval, invalid ObjectId validation (400 `INVALID_ID`), and score persistence
 - Verified **55/55 backend tests passing** and Vite client production build compiling cleanly
+
+---
+
+## Day 17 — AI Resume Advisor Service, Prompt Engineering & Career Coach UI
+
+**Date**: 2026-09-15
+
+### Implemented
+- Created `aiAdvisor.js` service (`server/src/services/aiAdvisor.js`):
+  - Structured prompt engineering instructing LLM to behave as an executive ATS resume coach
+  - Robust `cleanAndParseJsonResponse` utility stripping markdown code fences (` ```json `) and recovering raw JSON bodies
+  - High-fidelity `generateFallbackAdvice` heuristic generator that produces targeted strengths, improvements, role tips, and bullet point rewrites using missing keyword signals and section indicators
+  - Gracefully handles missing API keys, provider network latency, or timeouts with automatic non-blocking fallback
+- Extended `ResumeAnalysis` schema (`server/src/models/ResumeAnalysis.js`) to persist `aiAdvice` (provider, isMock, summary, strengths, improvements, bulletSuggestions, targetRoleTips)
+- Integrated AI recommendations directly into `scoreResumeHandler` (`server/src/controllers/scoreController.js`):
+  - Returns combined deterministic score breakdown alongside AI insights in a single unified API payload
+- Updated `UploadPage.jsx` with an **AI Career Coach Feedback** card:
+  - Executive assessment callout
+  - 2-column grid showcasing identified strengths and targeted improvements
+  - Interactive numbered action-verb bullet point suggestion cards
+- Built unit test suite `aiAdvisor.test.js` (`server/test/aiAdvisor.test.js`):
+  - Tested fallback structure, missing keyword incorporation, summary advice, and JSON resilience
+- Verified all **61/61 backend tests passing** across 11 test suites and clean Vite client production build

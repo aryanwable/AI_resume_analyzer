@@ -14,7 +14,10 @@ import {
   Check,
   X,
   Layers,
-  BookOpen
+  BookOpen,
+  Lightbulb,
+  ThumbsUp,
+  MessageSquare
 } from 'lucide-react';
 
 const JD_PRESETS = [
@@ -61,6 +64,7 @@ export default function UploadPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorNotice, setErrorNotice] = useState(null);
   const [scoreResult, setScoreResult] = useState(null);
+  const [aiAdvice, setAiAdvice] = useState(null);
 
   const wordCount = jobDescription.trim()
     ? jobDescription.trim().split(/\s+/).length
@@ -76,6 +80,7 @@ export default function UploadPage() {
     setJobDescription('');
     setErrorNotice(null);
     setScoreResult(null);
+    setAiAdvice(null);
   };
 
   const handleAnalyze = async () => {
@@ -91,6 +96,7 @@ export default function UploadPage() {
     setIsProcessing(true);
     setErrorNotice(null);
     setScoreResult(null);
+    setAiAdvice(null);
 
     try {
       // 1. Upload & Extract text via Day 14 backend pipeline
@@ -101,7 +107,7 @@ export default function UploadPage() {
         throw new Error('No readable text could be extracted from this PDF.');
       }
 
-      // 2. Score extracted resume against JD via Day 15 scoring engine & persist
+      // 2. Score extracted resume against JD & generate AI advisor feedback
       const scoreRes = await scoreResumeText({
         resumeText: extractedText,
         jobDescription: jobDescription.trim(),
@@ -113,6 +119,7 @@ export default function UploadPage() {
         saveToHistory: true,
       });
       setScoreResult(scoreRes?.data?.score);
+      setAiAdvice(scoreRes?.data?.aiAdvice);
     } catch (err) {
       const msg =
         err.response?.data?.error?.message ||
@@ -437,6 +444,91 @@ export default function UploadPage() {
               ))}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* AI Advisor Feedback Card */}
+      {aiAdvice && (
+        <div className="card space-y-6 shadow-xl border-brand-200/80 p-6 sm:p-8 bg-gradient-to-br from-white via-white to-brand-50/20 animate-fadeIn">
+          <div className="flex items-center justify-between gap-4 pb-4 border-b border-slate-100">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-brand-600 text-white flex items-center justify-center shadow-sm">
+                <Sparkles className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">AI Career Coach Feedback</h3>
+                <p className="text-xs text-slate-500">
+                  Powered by {aiAdvice.provider} {aiAdvice.isMock ? '(Heuristic Analysis Mode)' : '(Live LLM Evaluation)'}
+                </p>
+              </div>
+            </div>
+            <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-brand-50 text-brand-700 border border-brand-200">
+              Actionable Insights
+            </span>
+          </div>
+
+          {/* Executive Summary */}
+          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-700 leading-relaxed">
+            <span className="font-bold text-slate-900 block mb-1">Executive Assessment</span>
+            {aiAdvice.summary}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {/* Strengths */}
+            <div className="p-5 rounded-xl border border-emerald-200 bg-emerald-50/40 space-y-3">
+              <div className="flex items-center gap-2 text-xs font-bold text-emerald-800 uppercase tracking-wider">
+                <ThumbsUp className="w-4 h-4 text-emerald-600" />
+                <span>Identified Strengths</span>
+              </div>
+              <ul className="space-y-2 text-xs text-slate-700">
+                {aiAdvice.strengths?.map((str, idx) => (
+                  <li key={idx} className="flex items-start gap-2">
+                    <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                    <span>{str}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Targeted Improvements */}
+            <div className="p-5 rounded-xl border border-amber-200 bg-amber-50/40 space-y-3">
+              <div className="flex items-center gap-2 text-xs font-bold text-amber-800 uppercase tracking-wider">
+                <Lightbulb className="w-4 h-4 text-amber-600" />
+                <span>Targeted Improvements</span>
+              </div>
+              <ul className="space-y-2 text-xs text-slate-700">
+                {aiAdvice.improvements?.map((imp, idx) => (
+                  <li key={idx} className="flex items-start gap-2">
+                    <ArrowRight className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                    <span>{imp}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          {/* AI Bullet Point Suggestions */}
+          {aiAdvice.bulletSuggestions?.length > 0 && (
+            <div className="space-y-3 pt-2">
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-700 uppercase tracking-wider">
+                <MessageSquare className="w-4 h-4 text-brand-600" />
+                <span>Recommended Resume Bullet Points</span>
+              </div>
+              <div className="space-y-2">
+                {aiAdvice.bulletSuggestions.map((bullet, idx) => (
+                  <div
+                    key={idx}
+                    className="p-3 rounded-lg bg-white border border-slate-200 text-xs text-slate-800 flex items-start gap-3 shadow-xs hover:border-brand-300 transition-colors"
+                  >
+                    <span className="w-5 h-5 rounded-full bg-brand-100 text-brand-700 font-bold flex items-center justify-center shrink-0 text-[10px]">
+                      {idx + 1}
+                    </span>
+                    <p className="leading-relaxed">{bullet}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

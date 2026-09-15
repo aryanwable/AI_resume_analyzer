@@ -73,6 +73,15 @@ const resumeAnalysisSchema = new mongoose.Schema(
         },
       },
     },
+    aiAdvice: {
+      provider: { type: String, default: 'heuristic-engine' },
+      isMock: { type: Boolean, default: true },
+      summary: { type: String },
+      strengths: [{ type: String }],
+      improvements: [{ type: String }],
+      bulletSuggestions: [{ type: String }],
+      targetRoleTips: [{ type: String }],
+    },
     status: {
       type: String,
       enum: ['analyzed', 'archived'],
