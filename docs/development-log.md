@@ -370,3 +370,29 @@ A chronological record of development progress, challenges, and learnings.
 - **Lexical Diversity as Depth Proxy**: Measuring the type-token ratio (unique tokens / total tokens) offers a straightforward heuristic to reward rich vocabulary without penalizing concise, well-edited resumes.
 - **Client End-to-End Coordination**: Chaining file ingestion followed by scoring creates an intuitive step-by-step UX while handling backend validation errors cleanly at each phase.
 
+---
+
+## Day 16 — MongoDB Analysis Archive, History Management & Analytics Dashboard
+
+**Date**: 2026-09-15
+
+### Implemented
+- Designed and built Mongoose schema & model `ResumeAnalysis` (`server/src/models/ResumeAnalysis.js`):
+  - Stores user relation (`userId`), uploaded file metadata (`fileName`, `fileSizeBytes`, `fileSizeFormatted`), target job role, job description, full extracted text, document metrics, and 100-point score breakdown
+  - Indexed by `{ userId: 1, createdAt: -1 }` for high-performance chronological queries
+- Extended `scoreController.js` (`server/src/controllers/scoreController.js`):
+  - Automatically saves evaluations to MongoDB on `POST /api/resumes/score` with graceful fallback if the database runs in offline mode
+  - Built `GET /api/resumes/history` to query user's past analyses (excludes large raw text for lightweight list queries)
+  - Built `GET /api/resumes/history/:id` to retrieve full analysis breakdowns
+  - Built `DELETE /api/resumes/history/:id` with strict user ownership guards
+- Mounted new endpoints in `resumeRoutes.js` under authenticated middleware
+- Updated client API service (`client/src/services/resumeService.js`) with `getAnalysisHistory`, `getAnalysisById`, and `deleteAnalysisById`
+- Transformed `HistoryPage.jsx` (`client/src/pages/HistoryPage.jsx`) from a static placeholder into a live archive view:
+  - Fetches past analyses, shows formatted dates, word counts, letter grade badges, file sizes, and scores
+  - Supports one-click record deletion with instantaneous optimistic state updates
+- Transformed `DashboardPage.jsx` (`client/src/pages/DashboardPage.jsx`) into an active analytics cockpit:
+  - Calculates real-time average match scores across past evaluations
+  - Displays latest keyword matches, most recent letter grades, and total saved analyses
+  - Previews recent evaluations with direct links to full reports
+- Wrote integration test suite `resumeHistory.test.js` (`server/test/resumeHistory.test.js`) testing authentication guards, collection retrieval, invalid ObjectId validation (400 `INVALID_ID`), and score persistence
+- Verified **55/55 backend tests passing** and Vite client production build compiling cleanly

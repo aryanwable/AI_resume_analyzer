@@ -101,8 +101,17 @@ export default function UploadPage() {
         throw new Error('No readable text could be extracted from this PDF.');
       }
 
-      // 2. Score extracted resume against JD via Day 15 scoring engine
-      const scoreRes = await scoreResumeText(extractedText, jobDescription.trim());
+      // 2. Score extracted resume against JD via Day 15 scoring engine & persist
+      const scoreRes = await scoreResumeText({
+        resumeText: extractedText,
+        jobDescription: jobDescription.trim(),
+        fileName: selectedFile.name,
+        fileSizeBytes: selectedFile.size,
+        fileSizeFormatted: uploadRes?.data?.resume?.fileSizeFormatted,
+        jobRole: JD_PRESETS.find(p => p.description === jobDescription.trim())?.role || 'Target Position Analysis',
+        metrics: uploadRes?.data?.resume?.extraction,
+        saveToHistory: true,
+      });
       setScoreResult(scoreRes?.data?.score);
     } catch (err) {
       const msg =
