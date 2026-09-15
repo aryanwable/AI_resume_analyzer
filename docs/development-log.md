@@ -305,7 +305,37 @@ A chronological record of development progress, challenges, and learnings.
 - **PDF Magic Bytes**: Every conforming PDF begins with the 5-byte ASCII sequence `%PDF-`, followed by a version number (e.g., `1.4`, `2.0`). Checking this header is the most reliable way to verify file authenticity beyond MIME-type metadata, which can be spoofed.
 - **Buffer.subarray vs Buffer.slice**: `subarray()` returns a view over the same memory (no copy), making it the preferred method for header inspection over `slice()` which creates a copy in older Node versions.
 
+---
 
+## Day 14 — PDF Text Extraction with pdf-parse
+
+**Date**: 2026-09-15
+
+### Implemented
+- Installed `pdf-parse` v2 (`npm install pdf-parse`) — a fully typed, ESM-native wrapper around `pdfjs-dist`
+- Created `pdfExtractor.js` service (`server/src/services/pdfExtractor.js`) exporting `extractTextFromPdf(buffer)` which:
+  - Converts the Multer `Buffer` to `Uint8Array` for pdfjs compatibility
+  - Calls `PDFParse.getText()` to extract full page text with whitespace normalisation
+  - Calls `PDFParse.getInfo()` in a separate parser instance to extract document metadata (PDFFormatVersion, author, title, etc.)
+  - Returns `{ text, wordCount, charCount, pageCount, pdfVersion, info }`
+  - Always `destroy()`s both parser instances to free pdfjs memory
+- Updated `resumeController.js` to call `extractTextFromPdf` after the upload pipeline:
+  - On parse failure (corrupt / password-protected / image-only PDF) returns `422 PDF_PARSE_ERROR`
+  - On success returns `201` with `status: 'extracted'` and an `extraction` object in the response body
+- Created `pdfExtraction.test.js` (`server/test/pdfExtraction.test.js`) with 4 integration tests:
+  - Extraction fields (text, wordCount, charCount, pageCount, pdfVersion) are present
+  - Extracted text contains words from the embedded PDF content stream
+  - Word count matches the number of tokens embedded in the PDF
+  - `pdfVersion` field is always returned
+
+### Architecture Decisions
+- **Service Layer**: Extraction logic lives in `server/src/services/` (not the controller), keeping the controller thin and making the extractor independently testable and reusable for future batch processing or re-extraction jobs.
+- **Separate Parser Instances for getText / getInfo**: `PDFParse` v2 caches `this.doc` after the first `load()`. Sharing one instance between `getText()` and `getInfo()` works but risks subtle state issues; two short-lived instances are safer and the overhead is negligible for < 5 MB files.
+- **422 for Parse Failure**: A `422 Unprocessable Entity` is semantically correct — the file was received and validated structurally (magic bytes ✓, size ✓) but the server cannot process its content.
+
+### Learning
+- **pdf-parse v2 API**: The v2 package is a complete rewrite using a class-based API (`PDFParse`). The buffer must be passed as `{ data: Uint8Array }` in the constructor options (forwarded to `pdfjs.getDocument()`). The old v1 function-call style `pdfParse(buffer)` no longer exists.
+- **pdfjs Text Extraction**: `getTextContent()` returns `TextItem[]` with `str`, `transform`, and `hasEOL` properties. The pdf-parse `getPageText()` helper assembles these into readable lines while respecting spatial layout.
 
 
 
