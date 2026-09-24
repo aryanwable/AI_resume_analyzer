@@ -444,3 +444,22 @@ A chronological record of development progress, challenges, and learnings.
   - Preserved existing delete button as a separate non-navigating action
 - Verified all **61/61 backend tests passing** and Vite client production build compiling cleanly
 
+---
+
+## Day 19 — Advanced Text Preprocessing Pipeline
+
+**Date**: 2026-09-24
+
+### Implemented
+- Designed and built dedicated `textPreprocessor.js` service (`server/src/services/textPreprocessor.js`):
+  - `normalizeText`: Unicode cleanup, smart quote correction, standard bullet normalization (`•`, `▪`, `►`, `✔` to `- `), whitespace collapsing
+  - `tokenizeSentences`: Abbreviation-safe sentence splitter protecting decimals (`5.5`), URLs, common titles (`Dr.`, `Inc.`), and bullet boundaries
+  - `tokenizeWords`: Tech term-preserving word tokenizer maintaining symbols in critical technologies (`C++`, `C#`, `.NET`, `Node.js`, `CI/CD`, `TCP/IP`) while filtering stopwords
+  - `segmentSections`: Rule-based section segmenter parsing resumes into standard zones (`summary`, `experience`, `education`, `skills`, `projects`, `certifications`, `awards`, `publications`, `contact`)
+  - `extractContactInfo`: Regex-driven extraction for emails, international phone numbers, LinkedIn URLs, GitHub profiles, portfolio links, and candidate name heuristics
+  - `extractDocumentMetrics`: Comprehensive metric calculator computing character count, word count, sentence count, paragraph count, average sentence length, and reading time
+- Built comprehensive unit test suite `textPreprocessor.test.js` (`server/test/textPreprocessor.test.js`):
+  - Tested normalization, sentence splitting, tech token preservation, section segmentation, contact detail parsing, and document metrics
+- Verified **77/77 tests passing** across 12 test suites
+
+
