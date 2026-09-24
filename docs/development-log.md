@@ -462,4 +462,29 @@ A chronological record of development progress, challenges, and learnings.
   - Tested normalization, sentence splitting, tech token preservation, section segmentation, contact detail parsing, and document metrics
 - Verified **77/77 tests passing** across 12 test suites
 
+---
+
+## Day 20 — Comprehensive Skill Extraction Engine & Taxonomy Matching
+
+**Date**: 2026-09-24
+
+### Implemented
+- Created `skillExtractor.js` service (`server/src/services/skillExtractor.js`):
+  - Comprehensive 8-category skill taxonomy database:
+    - **Languages**: JavaScript, TypeScript, Python, Java, C++, C#, Go, Rust, Ruby, PHP, SQL, HTML5, CSS3, Bash, etc.
+    - **Frameworks**: React, Next.js, Vue.js, Angular, Node.js, Express.js, NestJS, Django, FastAPI, Spring Boot, ASP.NET, Rails, Flutter, etc.
+    - **Databases**: PostgreSQL, MongoDB, MySQL, Redis, Elasticsearch, DynamoDB, Oracle, SQLite, Cassandra, Neo4j, Firebase, Supabase, Prisma, Mongoose
+    - **Cloud**: AWS, Google Cloud (GCP), Microsoft Azure, Cloudflare, Vercel, Heroku, DigitalOcean, Terraform
+    - **DevOps**: Docker, Kubernetes, CI/CD Pipelines, GitHub Actions, GitLab CI, Jenkins, Ansible, Linux Administration, Nginx, Prometheus, Grafana
+    - **Tools & Protocols**: Git, Postman, Figma, Kafka, RabbitMQ, GraphQL, REST APIs, Microservices, gRPC, WebSockets, OAuth 2.0 / JWT, Jest, Cypress
+    - **AI & Data**: Machine Learning, Deep Learning, NLP, Computer Vision, TensorFlow, PyTorch, Scikit-Learn, Pandas, NumPy, LLMs, OpenAI API, LangChain, RAG, Vector Databases
+    - **Soft Skills**: Leadership, Communication, Problem Solving, Agile & Scrum, Mentorship, Team Collaboration, Time Management
+  - Alias normalizer mapping abbreviations and variations (e.g. `k8s` -> `Kubernetes`, `postgres` -> `PostgreSQL`, `ts` -> `TypeScript`, `gcp` -> `Google Cloud Platform (GCP)`)
+  - Boundary-safe regular expressions protecting against false positives in common English prose
+  - `compareSkills` utility generating matched skills, missing skills, extra skills, match percentages, and per-category coverage analytics
+- Created comprehensive unit test suite `skillExtractor.test.js` (`server/test/skillExtractor.test.js`):
+  - Tested categorization, alias mapping, false positive avoidance, and resume-vs-JD skill gap comparison
+- Verified **84/84 backend tests passing**
+
+
 
