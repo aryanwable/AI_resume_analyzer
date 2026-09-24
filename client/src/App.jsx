@@ -10,6 +10,7 @@ import DashboardPage from './pages/DashboardPage.jsx';
 import UploadPage from './pages/UploadPage.jsx';
 import HistoryPage from './pages/HistoryPage.jsx';
 import AnalysisDetailPage from './pages/AnalysisDetailPage.jsx';
+import AiToolsPage from './pages/AiToolsPage.jsx';
 import NotFoundPage from './pages/NotFoundPage.jsx';
 
 export default function App() {
@@ -37,6 +38,14 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <UploadPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="ai-tools"
+              element={
+                <ProtectedRoute>
+                  <AiToolsPage />
                 </ProtectedRoute>
               }
             />

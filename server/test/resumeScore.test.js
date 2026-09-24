@@ -130,10 +130,14 @@ describe('Resume Scoring Service — Unit Tests', () => {
 
   test('maxScore values are correct for all categories', () => {
     const result = scoreResume(SAMPLE_RESUME, SAMPLE_JD);
-    assert.equal(result.breakdown.keywords.maxScore, 50);
+    assert.equal(result.breakdown.skills.maxScore, 25);
+    assert.equal(result.breakdown.keywords.maxScore, 20);
+    assert.equal(result.breakdown.experience.maxScore, 20);
+    assert.equal(result.breakdown.projects.maxScore, 15);
+    assert.equal(result.breakdown.ats.maxScore, 10);
+    assert.equal(result.breakdown.education.maxScore, 10);
     assert.equal(result.breakdown.sections.maxScore, 20);
     assert.equal(result.breakdown.contentDepth.maxScore, 20);
-    assert.equal(result.breakdown.readability.maxScore, 10);
   });
 });
 

@@ -27,7 +27,8 @@ export default function Navbar() {
   const navLinks = [
     { to: '/', label: 'Home', icon: Sparkles },
     { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { to: '/upload', label: 'Upload Resume', icon: UploadCloud },
+    { to: '/upload', label: 'Upload & Score', icon: UploadCloud },
+    { to: '/ai-tools', label: 'AI Studio', icon: Sparkles },
     { to: '/history', label: 'History', icon: History },
   ];
 

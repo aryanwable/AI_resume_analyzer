@@ -1,262 +1,429 @@
 /**
- * Deterministic Resume Scoring Engine
+ * Explainable Resume Scoring Engine (6-Pillar Model)
  *
- * Scores a resume against a job description using keyword extraction,
- * section detection, and weighted category analysis.
+ * Evaluates a resume against a target job description across 6 transparent,
+ * weighted categories (total 100 points):
  *
- * Score breakdown (100 points total):
- *   - Keyword Match    : 50 pts  — How many JD keywords appear in the resume
- *   - Section Coverage : 20 pts  — Presence of standard resume sections
- *   - Content Depth    : 20 pts  — Word count and content density signals
- *   - Readability      : 10 pts  — Average sentence length and formatting signals
+ *   1. Skills Match           : 25 pts — Categorized taxonomy overlap & core skill coverage
+ *   2. Keyword Alignment      : 20 pts — N-gram, domain term match & keyword density
+ *   3. Experience & Impact    : 20 pts — Action verbs, quantified metrics, & employment tenure
+ *   4. Project Relevance      : 15 pts — Technical projects, modern stack application & links
+ *   5. ATS Compatibility      : 10 pts — Clean header parseability, contact data & bullet structure
+ *   6. Education & Credentials: 10 pts — Academic background, degree relevance & certifications
  */
 
-// ---------------------------------------------------------------------------
-// Stopwords — filtered out before keyword extraction
-// ---------------------------------------------------------------------------
-const STOPWORDS = new Set([
-  'a', 'an', 'and', 'are', 'as', 'at', 'be', 'been', 'being', 'by',
-  'for', 'from', 'has', 'have', 'he', 'her', 'him', 'his', 'how', 'i',
-  'if', 'in', 'is', 'it', 'its', 'me', 'my', 'no', 'not', 'of', 'on',
-  'or', 'our', 'out', 'she', 'so', 'the', 'their', 'them', 'they',
-  'this', 'to', 'up', 'us', 'was', 'we', 'were', 'what', 'when',
-  'where', 'who', 'will', 'with', 'you', 'your', 'that', 'which',
-  'than', 'more', 'also', 'can', 'do', 'does', 'did', 'would', 'could',
-  'should', 'may', 'might', 'shall', 'must', 'about', 'into', 'through',
-  'between', 'such', 'then', 'these', 'those', 'other', 'any', 'all',
-  'both', 'each', 'few', 'more', 'most', 'some', 'over', 'under',
-  'again', 'further', 'once', 'here', 'there', 'why', 'just', 'because',
-  'while', 'although', 'however', 'therefore', 'thus', 'hence',
-]);
-
-// ---------------------------------------------------------------------------
-// Standard resume section headings
-// ---------------------------------------------------------------------------
-const RESUME_SECTIONS = [
-  { name: 'contact',        patterns: [/contact|email|phone|linkedin|github/i] },
-  { name: 'summary',        patterns: [/summary|objective|profile|about\s*me/i] },
-  { name: 'experience',     patterns: [/experience|employment|work\s*history|career/i] },
-  { name: 'education',      patterns: [/education|academic|degree|university|college/i] },
-  { name: 'skills',         patterns: [/skills|technologies|tech\s*stack|expertise|competencies/i] },
-  { name: 'projects',       patterns: [/projects?|portfolio|personal\s*work/i] },
-  { name: 'certifications', patterns: [/certifications?|licenses?|credentials?|courses?/i] },
-  { name: 'achievements',   patterns: [/achievements?|awards?|honors?|accomplishments?/i] },
-];
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+import {
+  normalizeText,
+  segmentSections,
+  extractContactInfo,
+  extractDocumentMetrics,
+  tokenizeWords,
+} from './textPreprocessor.js';
+import { compareSkills, extractSkills } from './skillExtractor.js';
+import { matchKeywords, ACTION_VERBS } from './keywordMatcher.js';
 
 /**
- * Tokenise text into lowercase words, removing punctuation and stopwords.
- * @param {string} text
- * @returns {string[]}
+ * Derives letter grade from total score.
+ *
+ * @param {number} totalScore
+ * @returns {string}
  */
-const tokenise = (text) =>
-  text
-    .toLowerCase()
-    .replace(/[^a-z0-9\s+#.]/g, ' ')
-    .split(/\s+/)
-    .filter((w) => w.length > 1 && !STOPWORDS.has(w));
+export function deriveGrade(totalScore) {
+  if (totalScore >= 90) return 'A';
+  if (totalScore >= 80) return 'A-';
+  if (totalScore >= 70) return 'B';
+  if (totalScore >= 60) return 'C';
+  if (totalScore >= 50) return 'D';
+  return 'F';
+}
 
 /**
- * Build a frequency map from a token array.
- * @param {string[]} tokens
- * @returns {Map<string, number>}
+ * 1. Skills Match Category (Max: 25 pts)
  */
-const buildFreqMap = (tokens) => {
-  const map = new Map();
-  for (const t of tokens) map.set(t, (map.get(t) ?? 0) + 1);
-  return map;
-};
+function evaluateSkills(resumeText, jdText, segmented) {
+  const skillComparison = compareSkills(resumeText, jdText);
+  const { matchedSkills, missingSkills, matchPercentage, categoryBreakdown } = skillComparison;
 
-/**
- * Extract the top-N unique keywords from a token list by frequency.
- * @param {string[]} tokens
- * @param {number} topN
- * @returns {string[]}
- */
-const topKeywords = (tokens, topN = 40) => {
-  const freq = buildFreqMap(tokens);
-  return [...freq.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, topN)
-    .map(([word]) => word);
-};
+  // Base score proportional to match percentage
+  let score = Math.round((matchPercentage / 100) * 25);
 
-// ---------------------------------------------------------------------------
-// Scoring components
-// ---------------------------------------------------------------------------
-
-/**
- * Keyword match score (0 – 50).
- * Measures what % of top JD keywords appear in the resume.
- */
-const scoreKeywords = (resumeTokens, jdTokens) => {
-  const jdKeywords = topKeywords(jdTokens, 40);
-  if (jdKeywords.length === 0) return { score: 0, matched: [], missing: [] };
-
-  const resumeSet = new Set(resumeTokens);
-  const matched = jdKeywords.filter((kw) => resumeSet.has(kw));
-  const missing = jdKeywords.filter((kw) => !resumeSet.has(kw));
-
-  const ratio = matched.length / jdKeywords.length;
-  const score = Math.round(ratio * 50);
-
-  return { score, matched, missing, total: jdKeywords.length };
-};
-
-/**
- * Section coverage score (0 – 20).
- * Checks for presence of standard resume sections.
- */
-const scoreSections = (resumeText) => {
-  const found = [];
-  const missing = [];
-
-  for (const section of RESUME_SECTIONS) {
-    const detected = section.patterns.some((p) => p.test(resumeText));
-    if (detected) found.push(section.name);
-    else missing.push(section.name);
+  // Bonus if skills are specifically listed in dedicated skills section
+  if (segmented.detectedSections.includes('skills')) {
+    score = Math.min(25, score + 2);
   }
 
-  // Contact, experience, education, skills are required (weight 4 each = 16 pts)
-  // Projects and summary are bonus (weight 2 each = 4 pts)
-  const REQUIRED = ['experience', 'education', 'skills', 'contact'];
-  const BONUS = ['summary', 'projects', 'certifications', 'achievements'];
+  const percentage = Math.round((score / 25) * 100);
+  let status = 'Needs Improvement';
+  let feedback = '';
 
-  let score = 0;
-  for (const s of REQUIRED) if (found.includes(s)) score += 4;
-  for (const s of BONUS) if (found.includes(s)) score += 1;
-
-  return { score: Math.min(score, 20), found, missing };
-};
-
-/**
- * Content depth score (0 – 20).
- * Rewards appropriate resume length and content density.
- */
-const scoreContentDepth = (resumeText, resumeTokens) => {
-  const wordCount = resumeTokens.length;
-  const uniqueWords = new Set(resumeTokens).size;
-  const lexicalDiversity = wordCount > 0 ? uniqueWords / wordCount : 0;
-
-  // Word count bands (resume should be 200–800 words ideally)
-  let lengthScore;
-  if (wordCount < 100) lengthScore = 4;
-  else if (wordCount < 200) lengthScore = 8;
-  else if (wordCount <= 800) lengthScore = 14;
-  else if (wordCount <= 1200) lengthScore = 12;
-  else lengthScore = 8;
-
-  // Lexical diversity reward (0–6 pts)
-  const diversityScore = Math.round(Math.min(lexicalDiversity * 10, 6));
-
-  const score = Math.min(lengthScore + diversityScore, 20);
-  return { score, wordCount, uniqueWords, lexicalDiversity: +lexicalDiversity.toFixed(3) };
-};
-
-/**
- * Readability score (0 – 10).
- * Heuristically checks sentence length distribution and bullet structure.
- */
-const scoreReadability = (resumeText) => {
-  const sentences = resumeText
-    .split(/[.!?\n]+/)
-    .map((s) => s.trim())
-    .filter((s) => s.length > 10);
-
-  if (sentences.length === 0) return { score: 5, avgSentenceLength: 0, bulletPoints: 0 };
-
-  const avgLength =
-    sentences.reduce((sum, s) => sum + s.split(/\s+/).length, 0) / sentences.length;
-
-  // Bullet points signal good formatting
-  const bulletPoints = (resumeText.match(/^[\s]*[•\-\*\u2022]\s/gm) || []).length;
-  const hasBullets = bulletPoints > 3;
-
-  // Ideal avg sentence length is 8–20 words
-  let readScore = 10;
-  if (avgLength < 5 || avgLength > 35) readScore -= 4;
-  else if (avgLength < 8 || avgLength > 25) readScore -= 2;
-  if (hasBullets) readScore = Math.min(readScore + 2, 10);
+  if (percentage >= 80) {
+    status = 'Excellent';
+    feedback = `Exceptional skill alignment. Matched ${matchedSkills.length} required competencies with strong category coverage.`;
+  } else if (percentage >= 60) {
+    status = 'Strong';
+    feedback = `Good skill overlap (${matchedSkills.length} matched), but missing critical competencies like ${missingSkills.slice(0, 3).join(', ') || 'specialized tools'}.`;
+  } else if (percentage >= 40) {
+    status = 'Moderate';
+    feedback = `Moderate match. Resume covers foundational skills but lacks key requirements: ${missingSkills.slice(0, 4).join(', ')}.`;
+  } else {
+    status = 'Critical Gap';
+    feedback = `Significant skill mismatch. Target position requires ${missingSkills.slice(0, 5).join(', ')}.`;
+  }
 
   return {
-    score: Math.max(0, readScore),
-    avgSentenceLength: +avgLength.toFixed(1),
-    bulletPoints,
+    score,
+    maxScore: 25,
+    percentage,
+    status,
+    feedback,
+    matched: matchedSkills,
+    missing: missingSkills,
+    extra: skillComparison.extraSkills,
+    categoryBreakdown,
   };
-};
-
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
+}
 
 /**
- * Score a resume against a job description.
+ * 2. Keyword Alignment Category (Max: 20 pts)
+ */
+function evaluateKeywords(resumeText, jdText) {
+  const keywordData = matchKeywords(resumeText, jdText);
+  const { matchScore, matchedKeywords, missingKeywords, keywordDensityPercent } = keywordData;
+
+  const score = Math.round((matchScore / 100) * 20);
+  const percentage = Math.round((score / 20) * 100);
+
+  let status = 'Moderate';
+  let feedback = '';
+
+  if (percentage >= 75) {
+    status = 'Excellent';
+    feedback = `Strong domain vocabulary. Matched ${matchedKeywords.length} essential job description terms with ${keywordDensityPercent}% keyword density.`;
+  } else if (percentage >= 50) {
+    status = 'Strong';
+    feedback = `Fair keyword density. Incorporate high-signal terms like "${missingKeywords.slice(0, 3).join('", "')}" to boost relevance.`;
+  } else {
+    status = 'Needs Improvement';
+    feedback = `Low keyword alignment with target job. Key missing phrases: ${missingKeywords.slice(0, 4).join(', ')}.`;
+  }
+
+  return {
+    score,
+    maxScore: 20,
+    percentage,
+    status,
+    feedback,
+    matched: matchedKeywords,
+    missing: missingKeywords,
+    total: matchedKeywords.length + missingKeywords.length,
+    keywordDensityPercent,
+  };
+}
+
+/**
+ * 3. Experience & Impact Category (Max: 20 pts)
+ */
+function evaluateExperience(resumeText, segmented) {
+  let score = 0;
+  const hasExpSection = segmented.detectedSections.includes('experience');
+  if (hasExpSection) score += 6;
+
+  // Detect action verbs
+  const tokens = tokenizeWords(resumeText, { removeStopwords: false });
+  const verbsFound = new Set();
+  for (const t of tokens) {
+    if (ACTION_VERBS.has(t)) verbsFound.add(t);
+  }
+
+  if (verbsFound.size >= 10) score += 7;
+  else if (verbsFound.size >= 5) score += 4;
+  else if (verbsFound.size >= 2) score += 2;
+
+  // Detect quantified achievements (numbers, %, $, k/m metrics)
+  const metricMatches = resumeText.match(/\b\d+%\b|\$\d+[\d,.]*(?:k|m|b)?\b|\b\d+\s*(?:million|billion|thousand|users|clients|requests|ms|x)\b|\b(?:increased|decreased|reduced|improved|scaled)\s+by\s+\d+/gi) || [];
+  const quantifiedMetricsCount = metricMatches.length;
+
+  if (quantifiedMetricsCount >= 4) score += 7;
+  else if (quantifiedMetricsCount >= 2) score += 4;
+  else if (quantifiedMetricsCount >= 1) score += 2;
+
+  const percentage = Math.round((score / 20) * 100);
+  let status = 'Moderate';
+  let feedback = '';
+
+  if (percentage >= 80) {
+    status = 'Excellent';
+    feedback = `Impactful bullet points featuring ${verbsFound.size} strong action verbs and ${quantifiedMetricsCount} quantified outcome metrics.`;
+  } else if (percentage >= 50) {
+    status = 'Strong';
+    feedback = `Good experience layout, but could be elevated by replacing passive language with strong action verbs and measurable performance figures.`;
+  } else {
+    status = 'Needs Improvement';
+    feedback = `Experience lacks measurable business impact. Add percentage growth, latency reductions, or scale metrics to your bullet points.`;
+  }
+
+  return {
+    score,
+    maxScore: 20,
+    percentage,
+    status,
+    feedback,
+    actionVerbsCount: verbsFound.size,
+    actionVerbs: Array.from(verbsFound).slice(0, 10),
+    quantifiedMetricsCount,
+    hasExperienceSection: hasExpSection,
+  };
+}
+
+/**
+ * 4. Project Relevance Category (Max: 15 pts)
+ */
+function evaluateProjects(resumeText, segmented) {
+  let score = 0;
+  const hasProjectsSection = segmented.detectedSections.includes('projects');
+  if (hasProjectsSection) score += 6;
+
+  // Check for repo / live demo links in projects or whole resume
+  const hasRepoLinks = /github\.com\/[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+|gitlab\.com\/|bitbucket\.org\/|https?:\/\/[a-zA-Z0-9.-]+\.vercel\.app|https?:\/\/[a-zA-Z0-9.-]+\.netlify\.app/i.test(resumeText);
+  if (hasRepoLinks) score += 4;
+
+  // Project depth: word count in projects section or project keywords
+  const projectContent = segmented.sections.projects || '';
+  const projectWords = projectContent.split(/\s+/).filter(Boolean).length;
+  if (projectWords >= 60) score += 5;
+  else if (projectWords >= 25 || (!hasProjectsSection && /built|developed|created\s+an?\s+application/i.test(resumeText))) score += 3;
+
+  const percentage = Math.round((score / 15) * 100);
+  let status = 'Moderate';
+  let feedback = '';
+
+  if (percentage >= 80) {
+    status = 'Excellent';
+    feedback = `Outstanding technical projects showcasing applied skills with verifiable code repository/demo links.`;
+  } else if (percentage >= 50) {
+    status = 'Strong';
+    feedback = `Projects are present. Include live deployment links and GitHub repositories to provide proof of execution.`;
+  } else {
+    status = 'Needs Improvement';
+    feedback = `Add a dedicated Projects section highlighting real-world applications, tech stacks utilized, and GitHub links.`;
+  }
+
+  return {
+    score,
+    maxScore: 15,
+    percentage,
+    status,
+    feedback,
+    hasProjectsSection,
+    hasRepoLinks,
+  };
+}
+
+/**
+ * 5. ATS Formatting & Compatibility Category (Max: 10 pts)
+ */
+function evaluateAts(resumeText, segmented, metrics) {
+  let score = 0;
+  const contact = extractContactInfo(resumeText);
+
+  // Complete contact data (email + phone + link)
+  if (contact.email) score += 2;
+  if (contact.phone) score += 1;
+  if (contact.linkedin || contact.github || contact.portfolio) score += 1;
+
+  // Standard section header structure
+  const standardSectionsCount = segmented.detectedSections.length;
+  if (standardSectionsCount >= 4) score += 3;
+  else if (standardSectionsCount >= 2) score += 2;
+
+  // Healthy word count for 1-2 page resume (300 - 1000 words)
+  if (metrics.wordCount >= 300 && metrics.wordCount <= 1200) score += 2;
+  else if (metrics.wordCount > 150) score += 1;
+
+  // Sentence length readability
+  if (metrics.avgSentenceLengthWords >= 10 && metrics.avgSentenceLengthWords <= 28) score += 1;
+
+  score = Math.min(10, score);
+  const percentage = Math.round((score / 10) * 100);
+
+  let status = 'Excellent';
+  let feedback = '';
+
+  if (percentage >= 80) {
+    status = 'Excellent';
+    feedback = `Clean ATS-compliant document layout with standard section headers, parseable contact metadata, and optimal length.`;
+  } else if (percentage >= 60) {
+    status = 'Strong';
+    feedback = `Good parseability. Ensure email, phone, and standard section headers (Experience, Education, Skills) are clearly distinct.`;
+  } else {
+    status = 'Needs Improvement';
+    feedback = `ATS parsing risks detected. Ensure standard section titles and clear contact details are at the top of the resume.`;
+  }
+
+  return {
+    score,
+    maxScore: 10,
+    percentage,
+    status,
+    feedback,
+    detectedSections: segmented.detectedSections,
+    contactDataFound: {
+      email: Boolean(contact.email),
+      phone: Boolean(contact.phone),
+      links: Boolean(contact.linkedin || contact.github || contact.portfolio),
+    },
+  };
+}
+
+/**
+ * 6. Education & Certifications Category (Max: 10 pts)
+ */
+function evaluateEducation(resumeText, segmented) {
+  let score = 0;
+  const hasEduSection = segmented.detectedSections.includes('education');
+  if (hasEduSection) score += 4;
+
+  // Degree detection
+  const hasDegree = /bachelor|master|phd|b\.s\.|m\.s\.|b\.tech|m\.tech|b\.e\.|m\.e\.|computer\s*science|engineering|information\s*technology/i.test(resumeText);
+  if (hasDegree) score += 3;
+
+  // Certifications detection
+  const hasCertSection = segmented.detectedSections.includes('certifications');
+  const hasCertKeywords = /certified|aws\s*certified|kubernetes\s*administrator|cka|ckad|pmp|comptia|azure\s*solutions\s*architect|gcp\s*professional/i.test(resumeText);
+  if (hasCertSection || hasCertKeywords) score += 3;
+
+  score = Math.min(10, score);
+  const percentage = Math.round((score / 10) * 100);
+
+  let status = 'Moderate';
+  let feedback = '';
+
+  if (percentage >= 80) {
+    status = 'Excellent';
+    feedback = `Strong educational background and industry certifications validating your technical expertise.`;
+  } else if (percentage >= 50) {
+    status = 'Strong';
+    feedback = `Education is documented. Adding industry certifications (e.g. AWS, Kubernetes, GCP) will boost credibility.`;
+  } else {
+    status = 'Needs Improvement';
+    feedback = `Academic credentials or relevant certifications are minimally represented.`;
+  }
+
+  return {
+    score,
+    maxScore: 10,
+    percentage,
+    status,
+    feedback,
+    hasEducationSection: hasEduSection,
+    hasDegreeIdentified: hasDegree,
+  };
+}
+
+/**
+ * Master Explainable Resume Scoring Function
  *
- * @param {string} resumeText    - Plain text extracted from the resume PDF.
- * @param {string} jobDescription - The target job description text.
+ * @param {string} resumeText
+ * @param {string} jobDescription
  * @returns {{
  *   totalScore: number,
  *   grade: string,
- *   breakdown: {
- *     keywords: object,
- *     sections: object,
- *     contentDepth: object,
- *     readability: object,
- *   },
  *   summary: string,
+ *   breakdown: {
+ *     skills: Object,
+ *     keywords: Object,
+ *     experience: Object,
+ *     projects: Object,
+ *     ats: Object,
+ *     education: Object,
+ *     // Backwards-compatible legacy breakdown fields
+ *     contentDepth?: Object,
+ *     readability?: Object,
+ *     sections?: Object
+ *   },
+ *   metrics: Object,
+ *   contact: Object,
+ *   scoredAt: string
  * }}
  */
-export const scoreResume = (resumeText, jobDescription) => {
-  if (!resumeText || typeof resumeText !== 'string') {
-    throw new Error('resumeText must be a non-empty string.');
-  }
-  if (!jobDescription || typeof jobDescription !== 'string') {
-    throw new Error('jobDescription must be a non-empty string.');
+export function scoreResume(resumeText, jobDescription) {
+  if (!resumeText || typeof resumeText !== 'string' || resumeText.trim().length === 0) {
+    throw new Error('resumeText is required for scoring.');
   }
 
-  const resumeTokens = tokenise(resumeText);
-  const jdTokens = tokenise(jobDescription);
+  if (!jobDescription || typeof jobDescription !== 'string' || jobDescription.trim().length === 0) {
+    throw new Error('jobDescription is required for scoring.');
+  }
 
-  const keywords = scoreKeywords(resumeTokens, jdTokens);
-  const sections = scoreSections(resumeText);
-  const contentDepth = scoreContentDepth(resumeText, resumeTokens);
-  const readability = scoreReadability(resumeText);
+  const cleanResume = normalizeText(resumeText);
+  const cleanJd = normalizeText(jobDescription);
 
-  const totalScore = keywords.score + sections.score + contentDepth.score + readability.score;
+  const segmented = segmentSections(cleanResume);
+  const metrics = extractDocumentMetrics(cleanResume);
+  const contact = extractContactInfo(cleanResume);
 
-  // Letter grade
-  let grade;
-  if (totalScore >= 85) grade = 'A';
-  else if (totalScore >= 70) grade = 'B';
-  else if (totalScore >= 55) grade = 'C';
-  else if (totalScore >= 40) grade = 'D';
-  else grade = 'F';
+  // 6 Evaluator Pillars
+  const skillsPillar = evaluateSkills(cleanResume, cleanJd, segmented);
+  const keywordsPillar = evaluateKeywords(cleanResume, cleanJd);
+  const experiencePillar = evaluateExperience(cleanResume, segmented);
+  const projectsPillar = evaluateProjects(cleanResume, segmented);
+  const atsPillar = evaluateAts(cleanResume, segmented, metrics);
+  const educationPillar = evaluateEducation(cleanResume, segmented);
 
-  // Human-readable summary
-  const matchPct = keywords.total > 0
-    ? Math.round((keywords.matched.length / keywords.total) * 100)
-    : 0;
+  const totalScore = Math.min(
+    100,
+    skillsPillar.score +
+    keywordsPillar.score +
+    experiencePillar.score +
+    projectsPillar.score +
+    atsPillar.score +
+    educationPillar.score
+  );
 
-  const summary =
-    `Resume scored ${totalScore}/100 (${grade}). ` +
-    `Matched ${keywords.matched.length}/${keywords.total} JD keywords (${matchPct}%). ` +
-    `Detected ${sections.found.length}/${RESUME_SECTIONS.length} resume sections. ` +
-    `Content depth: ${contentDepth.wordCount} words.`;
+  const grade = deriveGrade(totalScore);
+
+  let summary = '';
+  if (totalScore >= 85) {
+    summary = `Excellent Match (${totalScore}/100 — Grade ${grade}): Outstanding alignment with target role across technical skills, experience impact, and ATS structure.`;
+  } else if (totalScore >= 70) {
+    summary = `Strong Match (${totalScore}/100 — Grade ${grade}): Solid qualifications for this role with actionable opportunities to close minor skill gaps and boost quantified bullet impact.`;
+  } else if (totalScore >= 55) {
+    summary = `Moderate Match (${totalScore}/100 — Grade ${grade}): Foundational alignment present, but requires targeted keyword optimization and additional project/skill evidence.`;
+  } else {
+    summary = `Low Match (${totalScore}/100 — Grade ${grade}): Significant gap between resume competencies and target job requirements. Target recommended skills to improve viability.`;
+  }
 
   return {
     totalScore,
     grade,
-    breakdown: {
-      keywords: { ...keywords, maxScore: 50 },
-      sections: { ...sections, maxScore: 20 },
-      contentDepth: { ...contentDepth, maxScore: 20 },
-      readability: { ...readability, maxScore: 10 },
-    },
     summary,
-  };
-};
+    breakdown: {
+      skills: skillsPillar,
+      keywords: keywordsPillar,
+      experience: experiencePillar,
+      projects: projectsPillar,
+      ats: atsPillar,
+      education: educationPillar,
 
-export default { scoreResume };
+      // Legacy backwards-compatibility properties for existing frontend views
+      sections: {
+        score: Math.round((segmented.detectedSections.length / 5) * 20),
+        maxScore: 20,
+        found: segmented.detectedSections,
+      },
+      contentDepth: {
+        score: Math.min(20, Math.round((metrics.wordCount / 500) * 20)),
+        maxScore: 20,
+        wordCount: metrics.wordCount,
+      },
+      readability: {
+        score: atsPillar.score,
+        maxScore: 10,
+        avgSentenceLength: metrics.avgSentenceLengthWords,
+      },
+    },
+    metrics,
+    contact,
+    scoredAt: new Date().toISOString(),
+  };
+}
