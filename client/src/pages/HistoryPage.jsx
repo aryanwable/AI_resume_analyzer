@@ -140,7 +140,10 @@ export default function HistoryPage() {
                   key={recordId}
                   className="card p-5 sm:p-6 hover:border-brand-300 transition-all shadow-sm hover:shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
                 >
-                  <div className="space-y-2 flex-1 min-w-0">
+                  <Link
+                    to={`/history/${recordId}`}
+                    className="space-y-2 flex-1 min-w-0 no-underline text-inherit hover:opacity-90 transition-opacity"
+                  >
                     <div className="flex items-center gap-2.5 flex-wrap">
                       <span className={`px-2 py-0.5 rounded text-xs font-bold border ${getGradeBadge(item.score?.grade)}`}>
                         Grade {item.score?.grade}
@@ -166,7 +169,7 @@ export default function HistoryPage() {
                       <span>•</span>
                       <span>{item.fileSizeFormatted}</span>
                     </div>
-                  </div>
+                  </Link>
 
                   {/* Right Actions & Score */}
                   <div className="flex items-center gap-4 self-end sm:self-center shrink-0">
@@ -178,6 +181,14 @@ export default function HistoryPage() {
                         / 100 PTS
                       </div>
                     </div>
+
+                    <Link
+                      to={`/history/${recordId}`}
+                      className="p-2 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors"
+                      title="View full report"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </Link>
 
                     <button
                       onClick={() => handleDelete(recordId)}

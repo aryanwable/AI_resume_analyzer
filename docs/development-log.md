@@ -419,3 +419,28 @@ A chronological record of development progress, challenges, and learnings.
 - Built unit test suite `aiAdvisor.test.js` (`server/test/aiAdvisor.test.js`):
   - Tested fallback structure, missing keyword incorporation, summary advice, and JSON resilience
 - Verified all **61/61 backend tests passing** across 11 test suites and clean Vite client production build
+
+---
+
+## Day 18 — Analysis Detail Page & Report Navigation
+
+**Date**: 2026-09-24
+
+### Implemented
+- Created `AnalysisDetailPage.jsx` (`client/src/pages/AnalysisDetailPage.jsx`):
+  - Full dedicated analysis report view loaded via `/history/:id` route
+  - Displays comprehensive score breakdown with subcategory progress meters (Keywords, Sections, Depth, Readability) and keyword match/miss pills
+  - Shows complete AI Career Coach Feedback section (executive summary, identified strengths, targeted improvements, numbered bullet point suggestions) — all preserved from original analysis
+  - Displays target job description provided during scoring
+  - Quick actions toolbar: Copy Summary to clipboard, Print/Save as PDF via browser print dialog, Delete report with confirmation
+  - Navigation back to history archive via back-arrow button
+  - Error & loading states with consistent design language
+- Wired `AnalysisDetailPage` route in `App.jsx` (`client/src/App.jsx`):
+  - Added protected route `history/:id` under authenticated route group
+  - Imported component with standard lazy-safe pattern
+- Updated `HistoryPage.jsx` (`client/src/pages/HistoryPage.jsx`):
+  - Made each history card body a clickable `<Link>` navigating to `/history/:id` for full report view
+  - Added `ChevronRight` icon button as a visual affordance for "View full report"
+  - Preserved existing delete button as a separate non-navigating action
+- Verified all **61/61 backend tests passing** and Vite client production build compiling cleanly
+
